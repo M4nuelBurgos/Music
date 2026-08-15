@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YT Music Downloader</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+
+    <div class="container glass-panel">
+        <header>
+            <h1>Descargar Música</h1>
+            <p>Pega el enlace de YouTube abajo y obtén tu MP3 en segundos.</p>
+        </header>
+        
+        <form id="downloadForm">
+            <div class="input-group">
+                <textarea id="urlInput" placeholder="Pega tus enlaces aquí (uno por línea)..." rows="4" required></textarea>
+                
+                <div class="options" style="text-align: left; margin: 5px 0 10px 5px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-muted);">
+                        <input type="checkbox" id="mp3Toggle" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                        <span>Convertir a MP3</span>
+                    </label>
+                </div>
+
+                <button type="submit" id="downloadBtn">
+                    <span>Descargar</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </button>
+            </div>
+        </form>
+
+        <div id="statusArea" class="hidden">
+            <div class="loader">
+                <div class="spinner"></div>
+                <p id="statusText">Procesando tu video...</p>
+            </div>
+        </div>
+
+        <div id="resultArea" class="hidden">
+            <div class="success-message">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="success-icon">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <h3 id="songTitle">Canción lista</h3>
+                <a id="downloadLink" href="#" class="btn-primary" download>Guardar Archivo</a>
+            </div>
+        </div>
+        
+        <div id="errorArea" class="hidden">
+            <p class="error-text" id="errorMessage"></p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
