@@ -1,136 +1,114 @@
-<div align="center">
+# YT Music Downloader
 
-# 🎵 YT Music Downloader
-
-**Descarga música de YouTube como MP3 directamente desde tu navegador.**  
-Soporta videos individuales, playlists completas y múltiples URLs a la vez.
+Application for downloading music from YouTube as MP3 files directly through a web interface. Supports individual videos, complete playlists, and batch URL processing.
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)
 ![Flask](https://img.shields.io/badge/Flask-3.0-black?style=flat-square&logo=flask)
 ![yt-dlp](https://img.shields.io/badge/yt--dlp-latest-red?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-</div>
+## Features
 
----
+- **MP3 Conversion**: Download as MP3 (192 kbps) or maintain original format
+- **Batch Processing**: Process multiple URLs simultaneously, one per line
+- **Playlist Support**: Download complete YouTube playlists with a single request
+- **Metadata Embedding**: Automatic extraction and embedding of cover art and artist information
+- **Automatic Packaging**: Multiple files are automatically compressed into a single ZIP archive
+- **Web Interface**: User-friendly interface eliminates the need for terminal usage
 
-## ✨ Características
+## Preview
 
-- 🎵 **Descarga como MP3** (192 kbps) o en formato original
-- 📋 **Múltiples URLs** — pega varias a la vez, una por línea
-- 📂 **Playlists completas** — descarga listas enteras de YouTube
-- 🖼️ **Metadatos automáticos** — portada e información del artista embebidos
-- 📦 **ZIP automático** — si descargas más de un archivo, los recibe en un `.zip`
-- 🌐 **Interfaz web** — no necesitas usar la terminal para descargar
-
-## 📸 Vista previa
-
-> La interfaz usa glassmorphism con un diseño oscuro y moderno.
+The interface implements a modern glassmorphism design with dark theme aesthetic.
 
 ![Preview](docs/preview.png)
 
----
+## Installation
 
-## 🚀 Instalación rápida
+### Prerequisites
 
-### Requisitos previos
+The following tools are required before proceeding:
 
-Antes de empezar, asegúrate de tener instalado:
-
-| Herramienta | Versión mínima | Descarga |
+| Tool | Minimum Version | Download |
 |---|---|---|
 | **Python** | 3.8+ | [python.org](https://www.python.org/downloads/) |
-| **FFmpeg** | Cualquier versión reciente | [ffmpeg.org](https://ffmpeg.org/download.html) |
+| **FFmpeg** | Latest | [ffmpeg.org](https://ffmpeg.org/download.html) |
 
-> ⚠️ **FFmpeg es obligatorio** para convertir a MP3. Después de descargarlo, agrégalo al PATH del sistema.
+**Note**: FFmpeg is required for MP3 conversion. After installation, ensure it is added to your system PATH.
 
-### Instalación
+### Setup Instructions
 
 ```bash
-# 1. Clona el repositorio
+# Clone the repository
 git clone https://github.com/M4nuelBurgos/Music.git
 cd Music
 
-# 2. Crea un entorno virtual (recomendado)
+# Create a virtual environment
 python -m venv venv
 
-# 3. Actívalo
+# Activate the virtual environment
 # Windows:
 venv\Scripts\activate
 # macOS/Linux:
 source venv/bin/activate
 
-# 4. Instala las dependencias
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### Verificar FFmpeg
+### Verify FFmpeg Installation
 
-Abre una terminal y ejecuta:
+Open a terminal and run:
 ```bash
 ffmpeg -version
 ```
-Si ves la versión, está correctamente instalado.
+Successful output confirms proper installation.
 
----
+## Usage
 
-## ▶️ Uso
-
+Start the application:
 ```bash
 python app.py
 ```
 
-Luego abre tu navegador en: **[http://localhost:5000](http://localhost:5000)**
+Access the web interface at: **[http://localhost:5000](http://localhost:5000)**
 
-1. Pega uno o varios enlaces de YouTube (uno por línea)
-2. Marca/desmarca "Convertir a MP3" según prefieras
-3. Haz clic en **Descargar**
-4. Espera y guarda tu archivo
+### Workflow
 
----
+1. Enter one or more YouTube URLs (one per line)
+2. Toggle "Convert to MP3" as needed
+3. Click **Download**
+4. Wait for processing and save the file(s)
 
-## 📁 Estructura del proyecto
+## Project Structure
 
 ```
-yt-music-downloader/
-├── app.py                  # Servidor Flask principal
-├── requirements.txt        # Dependencias Python
+Music/
+├── app.py                  # Flask application entry point
+├── requirements.txt        # Python dependencies
 ├── models/
-│   └── downloader.py       # Lógica de descarga con yt-dlp
+│   └── downloader.py       # Download logic using yt-dlp
 ├── templates/
-│   └── index.html          # Interfaz web (HTML)
+│   └── index.html          # Web interface
 ├── static/
-│   ├── css/style.css       # Estilos (glassmorphism)
-│   └── js/main.js          # Lógica del frontend
-└── downloads/              # Carpeta donde se guardan los archivos (no en Git)
+│   ├── css/style.css       # Stylesheet (glassmorphism)
+│   └── js/main.js          # Frontend logic
+└── downloads/              # Output directory (excluded from version control)
 ```
 
----
+## Configuration
 
-## 🔧 Configuración
-
-Por defecto el servidor corre en el puerto `5000`. Para cambiarlo, edita la última línea de `app.py`:
+By default, the server runs on port `5000`. To modify this, edit the last line in `app.py`:
 
 ```python
-app.run(debug=True, port=5000)  # Cambia 5000 por el puerto que prefieras
+app.run(debug=True, port=5000)  # Change 5000 to your desired port
 ```
 
-Para usarlo en modo producción, cambia `debug=True` a `debug=False`.
+For production deployment, change `debug=True` to `debug=False`.
 
----
+## Legal Notice
 
-## ⚖️ Aviso legal
+This project is intended for educational and personal use only. Users are responsible for ensuring they have the rights to download and use any content obtained through this application. Unauthorized downloading or distribution of copyrighted material is prohibited.
 
-Este proyecto es solo para uso **educativo y personal**. Descarga únicamente contenido del cual tengas los derechos o que esté bajo licencias que lo permitan. El uso indebido es responsabilidad del usuario.
+## License
 
----
-
-## 📄 Licencia
-
-Distribuido bajo la licencia **MIT**. Ver el archivo [LICENSE](LICENSE) para más detalles.
-
----
-
-<div align="center">
-Hecho con ❤️ y Python
-</div>
+This project is distributed under the MIT License. See the [LICENSE](LICENSE) file for details.
