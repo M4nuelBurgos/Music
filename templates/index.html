@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
-<body>
+<body data-theme="dark">
     <div class="background-shapes">
         <div class="shape shape-1"></div>
         <div class="shape shape-2"></div>
@@ -16,23 +16,40 @@
 
     <div class="container glass-panel">
         <header>
-            <h1>Descargar Música</h1>
-            <p>Pega el enlace de YouTube abajo y obtén tu MP3 en segundos.</p>
+            <div class="header-top">
+                <div>
+                    <h1 data-i18n="title">
+                        Download Music
+                        <span class="eq-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+                    </h1>
+                    <p data-i18n="subtitle">Paste YouTube links below and get your MP3 in seconds.</p>
+                </div>
+                <div class="header-controls">
+                    <div class="theme-selector">
+                        <button id="themeDark" class="theme-btn active" data-theme="dark" title="Dark Mode">🌙</button>
+                        <button id="themeLight" class="theme-btn" data-theme="light" title="Light Mode">☀️</button>
+                    </div>
+                    <div class="language-selector">
+                        <button id="langEN" class="lang-btn active" data-lang="en">EN</button>
+                        <button id="langES" class="lang-btn" data-lang="es">ES</button>
+                    </div>
+                </div>
+            </div>
         </header>
-        
+
         <form id="downloadForm">
             <div class="input-group">
-                <textarea id="urlInput" placeholder="Pega tus enlaces aquí (uno por línea)..." rows="4" required></textarea>
-                
+                <textarea id="urlInput" data-i18n="placeholder" placeholder="Paste your YouTube links here (one per line)..." rows="4" required></textarea>
+
                 <div class="options" style="text-align: left; margin: 5px 0 10px 5px;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-muted);">
                         <input type="checkbox" id="mp3Toggle" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
-                        <span>Convertir a MP3</span>
+                        <span data-i18n="convertToMp3">Convert to MP3</span>
                     </label>
                 </div>
 
                 <button type="submit" id="downloadBtn">
-                    <span>Descargar</span>
+                    <span data-i18n="downloadBtn">Download</span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                         <polyline points="7 10 12 15 17 10"></polyline>
@@ -44,8 +61,18 @@
 
         <div id="statusArea" class="hidden">
             <div class="loader">
-                <div class="spinner"></div>
-                <p id="statusText">Procesando tu video...</p>
+                <div class="spinner" role="status" aria-label="Processing">
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                </div>
+                <p id="statusText" data-i18n="processing">Processing your video...</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <p id="progressPercent">0%</p>
             </div>
         </div>
 
@@ -55,13 +82,24 @@
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                     <polyline points="22 4 12 14.01 9 11.01"></polyline>
                 </svg>
-                <h3 id="songTitle">Canción lista</h3>
-                <a id="downloadLink" href="#" class="btn-primary" download>Guardar Archivo</a>
+                <h3 id="songTitle" data-i18n="readyToDownload">Ready to download</h3>
+                <p id="messageText" style="color: var(--text-muted); font-size: 0.9rem; margin: 10px 0;"></p>
+                <a id="downloadLink" href="#" class="btn-primary" data-i18n="saveFile" download>Save File</a>
             </div>
         </div>
-        
+
         <div id="errorArea" class="hidden">
             <p class="error-text" id="errorMessage"></p>
+        </div>
+
+        <div id="historySection" class="history-section">
+            <div class="history-header">
+                <h3 data-i18n="history">Download History</h3>
+                <button id="clearHistoryBtn" class="clear-btn" data-i18n="clearHistory">Clear History</button>
+            </div>
+            <div id="historyList" class="history-list">
+                <p id="noHistoryMsg" data-i18n="noHistory">No downloads yet</p>
+            </div>
         </div>
     </div>
 
