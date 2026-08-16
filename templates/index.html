@@ -48,6 +48,11 @@
                     </label>
                 </div>
 
+                <div id="qualityGroup" class="quality-group hidden">
+                    <label for="qualitySelect" data-i18n="quality">Quality</label>
+                    <select id="qualitySelect"></select>
+                </div>
+
                 <button type="submit" id="downloadBtn">
                     <span data-i18n="downloadBtn">Download</span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -90,6 +95,23 @@
 
         <div id="errorArea" class="hidden">
             <p class="error-text" id="errorMessage"></p>
+        </div>
+
+        <!-- Modal para alertas y errores -->
+        <div id="alertModal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Alert</h3>
+                    <button class="modal-close" onclick="closeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="modalMessage"></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" onclick="closeModal()" data-i18n="accept">Accept</button>
+                </div>
+            </div>
         </div>
 
         <div id="historySection" class="history-section">

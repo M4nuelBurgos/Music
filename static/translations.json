@@ -12,13 +12,18 @@
     "noUrls": "Please provide at least one URL.",
     "invalidUrl": "Please enter valid YouTube URLs.",
     "filesDownloaded": "files",
-    "downloadComplete": "Download complete",
+    "downloadComplete": "File saved automatically to your Downloads folder.",
     "history": "Download History",
     "noHistory": "No downloads yet",
     "clearHistory": "Clear History",
+    "error": "Error",
+    "accept": "Accept",
     "theme": "Theme",
     "dark": "Dark",
-    "light": "Light"
+    "light": "Light",
+    "quality": "Quality",
+    "autoQuality": "Auto (best available)",
+    "fetchingFormats": "Loading available qualities..."
   },
   "es": {
     "title": "Descargar Música",
@@ -33,12 +38,17 @@
     "noUrls": "Por favor proporciona al menos una URL.",
     "invalidUrl": "Por favor ingresa URLs válidas de YouTube.",
     "filesDownloaded": "canciones",
-    "downloadComplete": "Descarga completada",
+    "downloadComplete": "Archivo guardado automáticamente en tu carpeta Descargas.",
     "history": "Historial de Descargas",
     "noHistory": "Sin descargas aún",
     "clearHistory": "Limpiar Historial",
+    "error": "Error",
+    "accept": "Aceptar",
     "theme": "Tema",
     "dark": "Oscuro",
-    "light": "Claro"
+    "light": "Claro",
+    "quality": "Calidad",
+    "autoQuality": "Automática (mejor disponible)",
+    "fetchingFormats": "Cargando calidades disponibles..."
   }
 }

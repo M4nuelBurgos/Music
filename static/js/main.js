@@ -2,16 +2,88 @@ let translations = {};
 let currentLanguage = localStorage.getItem('language') || 'en';
 let currentTheme = localStorage.getItem('theme') || 'dark';
 let downloadHistory = JSON.parse(localStorage.getItem('downloadHistory')) || [];
+let historyPollInterval = null;
+
+// Modal functions - Create modal dynamically if it doesn't exist
+function ensureModalExists() {
+    if (!document.getElementById('alertModal')) {
+        const modalHTML = `
+            <div id="alertModal" class="modal hidden">
+                <div class="modal-overlay" onclick="closeModal()"></div>
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="modalTitle">Alert</h3>
+                        <button class="modal-close" onclick="closeModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p id="modalMessage"></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-primary" onclick="closeModal()" data-i18n="accept">Accept</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+}
+
+function showModal(title, message) {
+    ensureModalExists();
+    
+    const modal = document.getElementById('alertModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMessage = document.getElementById('modalMessage');
+    
+    if (modalTitle) modalTitle.textContent = title;
+    if (modalMessage) modalMessage.textContent = message;
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeModal() {
+    const modal = document.getElementById('alertModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
 
 // Load translations
 async function loadTranslations() {
     try {
         const response = await fetch('/static/translations.json');
+        if (!response.ok) {
+            console.warn('Failed to load translations (HTTP ' + response.status + '). Using fallback English.');
+            loadDefaultTranslations();
+            return;
+        }
         translations = await response.json();
         setLanguage(currentLanguage);
     } catch (error) {
         console.error('Failed to load translations:', error);
+        loadDefaultTranslations();
     }
+}
+
+// Fallback translations
+function loadDefaultTranslations() {
+    translations = {
+        'en': {
+            'title': 'Download Music',
+            'error': 'Error',
+            'accept': 'Accept',
+            'downloadComplete': 'File saved automatically to your Downloads folder.',
+            'noUrls': 'Please provide at least one URL.',
+            'errorOccurred': 'An error occurred while processing the videos.'
+        },
+        'es': {
+            'title': 'Descargar Música',
+            'error': 'Error',
+            'accept': 'Aceptar',
+            'downloadComplete': 'Archivo guardado automáticamente en tu carpeta Descargas.',
+            'noUrls': 'Por favor proporciona al menos una URL.',
+            'errorOccurred': 'Ocurrió un error al procesar los videos.'
+        }
+    };
 }
 
 // Update UI text based on language
@@ -105,6 +177,30 @@ function displayHistory() {
     `).join('');
 }
 
+// Sync history from server in real-time
+function syncHistoryFromServer() {
+    // Store current local history size
+    const currentSize = downloadHistory.length;
+    // This checks if new downloads happened (you can expand this with actual server sync if needed)
+}
+
+// Start real-time history polling
+function startHistoryPolling() {
+    if (historyPollInterval) clearInterval(historyPollInterval);
+    
+    historyPollInterval = setInterval(() => {
+        syncHistoryFromServer();
+    }, 2000); // Poll every 2 seconds
+}
+
+// Stop history polling
+function stopHistoryPolling() {
+    if (historyPollInterval) {
+        clearInterval(historyPollInterval);
+        historyPollInterval = null;
+    }
+}
+
 // Delete history item
 function deleteHistoryItem(index) {
     downloadHistory.splice(index, 1);
@@ -112,26 +208,94 @@ function deleteHistoryItem(index) {
     displayHistory();
 }
 
-// Simulate progress (will be replaced with real progress from server)
-function simulateProgress(progressBar, progressPercent, duration = 3000) {
-    let currentProgress = 0;
-    const increment = Math.random() * 30 + 10;
-    
-    const interval = setInterval(() => {
-        currentProgress += increment;
-        if (currentProgress > 90) {
-            currentProgress = 90;
+// Poll a background download job until it's done or errors out.
+// Returns the final job object: { status: 'done', result: {...} }
+// or { status: 'error', error: '...' }.
+function pollJob(jobId, progressBar, progressPercent) {
+    return new Promise((resolve, reject) => {
+        const iv = setInterval(async () => {
+            try {
+                const res = await fetch(`/progress/${jobId}`);
+                if (!res.ok) {
+                    clearInterval(iv);
+                    reject(new Error('Lost track of the download job.'));
+                    return;
+                }
+                const job = await res.json();
+                const pct = Math.max(0, Math.min(job.percent || 0, 100));
+                progressBar.style.width = pct + '%';
+                progressPercent.textContent = Math.round(pct) + '%';
+
+                if (job.status === 'done' || job.status === 'error') {
+                    clearInterval(iv);
+                    resolve(job);
+                }
+            } catch (err) {
+                clearInterval(iv);
+                reject(err);
+            }
+        }, 700);
+    });
+}
+
+// Very loose check, just to decide whether it's worth asking the server
+// for formats — the server does the real validation.
+function looksLikeYoutubeUrl(url) {
+    return /(youtube\.com|youtu\.be|youtube-nocookie\.com)/.test(url);
+}
+
+let formatsAbortController = null;
+
+async function maybeFetchFormats(urlInput, qualityGroup, qualitySelect) {
+    const urls = urlInput.value.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+
+    // Quality picking only makes sense for a single URL — with several,
+    // each video can offer a different set of format ids.
+    if (urls.length !== 1 || !looksLikeYoutubeUrl(urls[0])) {
+        qualityGroup.classList.add('hidden');
+        qualitySelect.innerHTML = '';
+        return;
+    }
+
+    if (formatsAbortController) formatsAbortController.abort();
+    formatsAbortController = new AbortController();
+
+    qualitySelect.disabled = true;
+    qualitySelect.innerHTML = `<option value="">${translations[currentLanguage]['fetchingFormats'] || 'Loading...'}</option>`;
+    qualityGroup.classList.remove('hidden');
+
+    try {
+        const res = await fetch('/formats', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: urls[0] }),
+            signal: formatsAbortController.signal,
+        });
+
+        if (!res.ok) {
+            qualityGroup.classList.add('hidden');
+            return;
         }
-        
-        progressBar.style.width = currentProgress + '%';
-        progressPercent.textContent = Math.floor(currentProgress) + '%';
-        
-        if (currentProgress >= 90) {
-            clearInterval(interval);
+
+        const data = await res.json();
+        const availableFormats = data.formats || [];
+
+        if (availableFormats.length === 0) {
+            qualityGroup.classList.add('hidden');
+            return;
         }
-    }, duration / 30);
-    
-    return interval;
+
+        const autoLabel = translations[currentLanguage]['autoQuality'] || 'Auto (best available)';
+        qualitySelect.innerHTML =
+            `<option value="">${autoLabel}</option>` +
+            availableFormats.map(f => `<option value="${f.format_id}">${f.label}</option>`).join('');
+        qualitySelect.disabled = false;
+        qualityGroup.classList.remove('hidden');
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            qualityGroup.classList.add('hidden');
+        }
+    }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -152,18 +316,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Clear history button
     document.getElementById('clearHistoryBtn').addEventListener('click', () => {
-        if (confirm(translations[currentLanguage]['clearHistory'] + '?')) {
+        showModal(
+            translations[currentLanguage]['clearHistory'],
+            translations[currentLanguage]['clearHistory'] + '?'
+        );
+        // Simple replace confirm with modal
+        const oldCloseModal = closeModal;
+        closeModal = function() {
             downloadHistory = [];
             localStorage.setItem('downloadHistory', JSON.stringify(downloadHistory));
             displayHistory();
-        }
+            document.getElementById('alertModal').classList.add('hidden');
+            closeModal = oldCloseModal;
+        };
     });
+    
+    // Start real-time history polling
+    startHistoryPolling();
     
     const form = document.getElementById('downloadForm');
     const urlInput = document.getElementById('urlInput');
     const mp3Toggle = document.getElementById('mp3Toggle');
     const downloadBtn = document.getElementById('downloadBtn');
-    
+    const qualityGroup = document.getElementById('qualityGroup');
+    const qualitySelect = document.getElementById('qualitySelect');
+
     const statusArea = document.getElementById('statusArea');
     const resultArea = document.getElementById('resultArea');
     const errorArea = document.getElementById('errorArea');
@@ -174,16 +351,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     const downloadLink = document.getElementById('downloadLink');
     const errorMessage = document.getElementById('errorMessage');
 
+    // Debounced lookup of available qualities as the user types/pastes a URL.
+    let formatsDebounce;
+    urlInput.addEventListener('input', () => {
+        clearTimeout(formatsDebounce);
+        formatsDebounce = setTimeout(() => {
+            maybeFetchFormats(urlInput, qualityGroup, qualitySelect);
+        }, 700);
+    });
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const rawText = urlInput.value;
         const urls = rawText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
         const convertToMp3 = mp3Toggle.checked;
+        const formatId = (!qualityGroup.classList.contains('hidden') && qualitySelect.value)
+            ? qualitySelect.value
+            : null;
         
         if (urls.length === 0) {
-            errorArea.classList.remove('hidden');
-            errorMessage.textContent = translations[currentLanguage]['noUrls'];
+            showModal(
+                translations[currentLanguage]['error'],
+                translations[currentLanguage]['noUrls']
+            );
             return;
         }
 
@@ -196,47 +387,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         downloadBtn.disabled = true;
         downloadBtn.style.opacity = '0.7';
 
-        // Simulate progress
-        const progressInterval = simulateProgress(progressBar, progressPercent);
-
         try {
-            const response = await fetch('/download', {
+            // Step 1: kick off the download job. The server starts it in
+            // the background and responds immediately with a job_id.
+            const startResponse = await fetch('/download', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ urls: urls, convert_to_mp3: convertToMp3 })
+                body: JSON.stringify({
+                    urls: urls,
+                    convert_to_mp3: convertToMp3,
+                    format_id: formatId,
+                })
             });
 
-            const data = await response.json();
+            const startData = await startResponse.json();
 
-            if (!response.ok) {
-                throw new Error(data.error || translations[currentLanguage]['errorOccurred']);
+            if (!startResponse.ok) {
+                throw new Error(startData.error || translations[currentLanguage]['errorOccurred']);
             }
 
-            // Complete progress
-            clearInterval(progressInterval);
-            progressBar.style.width = '100%';
-            progressPercent.textContent = '100%';
+            // Step 2: poll /progress/<job_id> until it finishes, updating
+            // the real progress bar as yt-dlp reports it.
+            const finalJob = await pollJob(startData.job_id, progressBar, progressPercent);
+
+            if (finalJob.status === 'error') {
+                throw new Error(finalJob.error || translations[currentLanguage]['errorOccurred']);
+            }
 
             // Success
             setTimeout(() => {
                 statusArea.classList.add('hidden');
                 resultArea.classList.remove('hidden');
                 
-                songTitle.textContent = data.title;
-                document.getElementById('messageText').textContent = data.message;
-                downloadLink.href = `/file/${encodeURIComponent(data.filename)}`;
+                songTitle.textContent = finalJob.result.title;
+                document.getElementById('messageText').textContent = '✓ ' + translations[currentLanguage]['downloadComplete'];
+                
+                // Hide the download link since file is already saved
+                downloadLink.style.display = 'none';
                 
                 // Add to history
-                addToHistory(data.title);
-            }, 500);
+                addToHistory(finalJob.result.title);
+            }, 300);
             
         } catch (error) {
-            clearInterval(progressInterval);
             statusArea.classList.add('hidden');
-            errorArea.classList.remove('hidden');
-            errorMessage.textContent = error.message;
+            showModal(
+                translations[currentLanguage]['error'],
+                error.message
+            );
         } finally {
             downloadBtn.disabled = false;
             downloadBtn.style.opacity = '1';

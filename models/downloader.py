@@ -10,13 +10,74 @@ def is_valid_youtube_url(url):
     return bool(re.match(youtube_regex, url))
 
 
-def download_audio(urls, output_path, convert_to_mp3=True, progress_hook=None, max_urls=20):
+def get_available_formats(url):
+    """
+    Lists the audio-only formats/qualities available for a single video,
+    without downloading anything. Useful to let the user pick a quality
+    before committing to a download.
+
+    Returns a list of dicts like:
+    [{'format_id': '251', 'ext': 'webm', 'acodec': 'opus',
+      'abr': 160, 'filesize_approx': 4123456, 'label': 'webm · opus · ~160kbps'}, ...]
+    sorted from highest to lowest bitrate.
+    """
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'extractor_args': {'youtube': ['player_client=android,web']},
+        'noplaylist': True,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    if 'entries' in info:
+        # First video only, if a playlist URL was passed for a preview
+        info = next((e for e in info['entries'] if e), info)
+
+    formats = []
+    for f in info.get('formats', []):
+        # audio-only formats have no video codec (or it's explicitly 'none')
+        if f.get('vcodec') not in (None, 'none'):
+            continue
+        if f.get('acodec') in (None, 'none'):
+            continue
+
+        abr = f.get('abr') or f.get('tbr')
+        ext = f.get('ext', '?')
+        acodec = f.get('acodec', '?')
+        label_bitrate = f"~{int(abr)}kbps" if abr else "unknown bitrate"
+        formats.append({
+            'format_id': f.get('format_id'),
+            'ext': ext,
+            'acodec': acodec,
+            'abr': abr or 0,
+            'filesize_approx': f.get('filesize') or f.get('filesize_approx'),
+            'label': f"{ext} · {acodec} · {label_bitrate}",
+        })
+
+    formats.sort(key=lambda x: x['abr'], reverse=True)
+
+    return {
+        'title': info.get('title'),
+        'duration': info.get('duration'),
+        'formats': formats,
+    }
+
+
+def download_audio(urls, output_path, convert_to_mp3=True, progress_hook=None,
+                    max_urls=20, format_id=None):
     """
     Downloads audio from YouTube URLs and saves them to the output path.
     Returns a list of final file paths and a generic title.
 
     progress_hook: optional callable(dict) forwarded to yt-dlp's progress_hooks,
                    lets the caller (e.g. Flask route) report real download progress.
+    format_id: optional specific yt-dlp format id (from get_available_formats)
+               to download that exact quality instead of "best". Only makes
+               sense when downloading a single URL — with multiple URLs it's
+               ignored and "bestaudio/best" is used, since format ids aren't
+               guaranteed to exist across different videos.
     """
     if isinstance(urls, str):
         urls = [urls]
@@ -24,10 +85,14 @@ def download_audio(urls, output_path, convert_to_mp3=True, progress_hook=None, m
     if len(urls) > max_urls:
         raise ValueError(f"Too many URLs (max {max_urls} per request).")
 
+    chosen_format = 'bestaudio/best'
+    if format_id and len(urls) == 1:
+        chosen_format = f'{format_id}/bestaudio/best'
+
     # %(id)s in the template avoids two videos with the same title silently
     # overwriting each other.
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': chosen_format,
         'outtmpl': os.path.join(output_path, '%(title)s [%(id)s].%(ext)s'),
         'noplaylist': False,
         'extractor_args': {'youtube': ['player_client=android,web']},
@@ -41,6 +106,13 @@ def download_audio(urls, output_path, convert_to_mp3=True, progress_hook=None, m
         ydl_opts['writethumbnail'] = True
         ydl_opts['postprocessors'] = [
             {
+                # Tries to split "Artist - Song Title" into separate artist/title
+                # fields. If the video title doesn't match that pattern, it's a
+                # no-op and the original title is kept as-is.
+                'key': 'MetadataFromTitle',
+                'titleformat': '%(artist)s - %(title)s',
+            },
+            {
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
@@ -49,7 +121,11 @@ def download_audio(urls, output_path, convert_to_mp3=True, progress_hook=None, m
                 'key': 'EmbedThumbnail',
             },
             {
+                # add_metadata writes title/artist/album/date/etc. from the
+                # info dict into the mp3's ID3 tags. Year comes from
+                # upload_date automatically when present.
                 'key': 'FFmpegMetadata',
+                'add_metadata': True,
             }
         ]
 
@@ -75,7 +151,20 @@ def download_audio(urls, output_path, convert_to_mp3=True, progress_hook=None, m
 
                     if convert_to_mp3:
                         prepared_filename = ydl.prepare_filename(entry)
-                        final_file_path = prepared_filename.rsplit('.', 1)[0] + '.mp3'
+                        base_path = prepared_filename.rsplit('.', 1)[0]
+                        final_file_path = base_path + '.mp3'
+
+                        # The thumbnail was already embedded into the mp3's
+                        # cover art by the EmbedThumbnail postprocessor above.
+                        # Remove the leftover standalone image file so only
+                        # the .mp3 remains in the output folder.
+                        for ext in ('.webp', '.jpg', '.jpeg', '.png'):
+                            leftover_thumb = base_path + ext
+                            if os.path.exists(leftover_thumb):
+                                try:
+                                    os.remove(leftover_thumb)
+                                except OSError:
+                                    pass  # not critical if cleanup fails
                     else:
                         final_file_path = ydl.prepare_filename(entry)
 
