@@ -2,6 +2,12 @@ import yt_dlp
 import os
 import re
 
+# Ensure deno.exe (in the project root) can be found by yt-dlp
+project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_dir not in os.environ.get('PATH', ''):
+    os.environ['PATH'] = f"{project_dir}{os.pathsep}{os.environ.get('PATH', '')}"
+
+
 def is_valid_youtube_url(url):
     """
     Validates if a URL is a valid YouTube URL.
@@ -24,7 +30,6 @@ def get_available_formats(url):
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
-        'extractor_args': {'youtube': ['player_client=android,web']},
         'noplaylist': True,
     }
 
@@ -95,39 +100,47 @@ def download_audio(urls, output_path, convert_to_mp3=True, progress_hook=None,
         'format': chosen_format,
         'outtmpl': os.path.join(output_path, '%(title)s [%(id)s].%(ext)s'),
         'noplaylist': False,
-        'extractor_args': {'youtube': ['player_client=android,web']},
+        'extractor_args': {'youtube': ['player_client=ios,tv']},
         'restrictfilenames': True,  # avoids characters that break URLs / filesystems
-    }
-
-    if progress_hook:
-        ydl_opts['progress_hooks'] = [progress_hook]
-
-    if convert_to_mp3:
-        ydl_opts['writethumbnail'] = True
-        ydl_opts['postprocessors'] = [
+        'writethumbnail': True,
+        'postprocessors': [
             {
                 # Tries to split "Artist - Song Title" into separate artist/title
                 # fields. If the video title doesn't match that pattern, it's a
                 # no-op and the original title is kept as-is.
                 'key': 'MetadataFromTitle',
                 'titleformat': '%(artist)s - %(title)s',
-            },
-            {
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            },
-            {
-                'key': 'EmbedThumbnail',
-            },
-            {
-                # add_metadata writes title/artist/album/date/etc. from the
-                # info dict into the mp3's ID3 tags. Year comes from
-                # upload_date automatically when present.
-                'key': 'FFmpegMetadata',
-                'add_metadata': True,
             }
         ]
+    }
+
+    # Automatically use cookies.txt if it exists in the project root
+    # This bypasses YouTube's strict bot protection and 403 errors
+    cookies_path = os.path.join(project_dir, 'cookies.txt')
+    if os.path.exists(cookies_path):
+        ydl_opts['cookiefile'] = cookies_path
+
+    if progress_hook:
+        ydl_opts['progress_hooks'] = [progress_hook]
+
+    if convert_to_mp3:
+        ydl_opts['postprocessors'].append({
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        })
+
+    ydl_opts['postprocessors'].extend([
+        {
+            'key': 'EmbedThumbnail',
+        },
+        {
+            # add_metadata writes title/artist/album/date/etc. from the
+            # info dict into the mp3/m4a's tags.
+            'key': 'FFmpegMetadata',
+            'add_metadata': True,
+        }
+    ])
 
     downloaded_files = []
     titles = []
@@ -149,24 +162,25 @@ def download_audio(urls, output_path, convert_to_mp3=True, progress_hook=None,
                     if not entry:
                         continue  # Skip hidden or deleted videos in a playlist
 
+                    prepared_filename = ydl.prepare_filename(entry)
+                    base_path = prepared_filename.rsplit('.', 1)[0]
+                    
                     if convert_to_mp3:
-                        prepared_filename = ydl.prepare_filename(entry)
-                        base_path = prepared_filename.rsplit('.', 1)[0]
                         final_file_path = base_path + '.mp3'
-
-                        # The thumbnail was already embedded into the mp3's
-                        # cover art by the EmbedThumbnail postprocessor above.
-                        # Remove the leftover standalone image file so only
-                        # the .mp3 remains in the output folder.
-                        for ext in ('.webp', '.jpg', '.jpeg', '.png'):
-                            leftover_thumb = base_path + ext
-                            if os.path.exists(leftover_thumb):
-                                try:
-                                    os.remove(leftover_thumb)
-                                except OSError:
-                                    pass  # not critical if cleanup fails
                     else:
-                        final_file_path = ydl.prepare_filename(entry)
+                        final_file_path = prepared_filename
+
+                    # The thumbnail was already embedded into the audio's
+                    # cover art by the EmbedThumbnail postprocessor above.
+                    # Remove the leftover standalone image file so only
+                    # the audio remains in the output folder.
+                    for ext in ('.webp', '.jpg', '.jpeg', '.png'):
+                        leftover_thumb = base_path + ext
+                        if os.path.exists(leftover_thumb):
+                            try:
+                                os.remove(leftover_thumb)
+                            except OSError:
+                                pass  # not critical if cleanup fails
 
                     downloaded_files.append(final_file_path)
 

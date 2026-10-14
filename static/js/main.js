@@ -351,13 +351,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     const downloadLink = document.getElementById('downloadLink');
     const errorMessage = document.getElementById('errorMessage');
 
+    // Update visibility of quality group based on mp3Toggle
+    const updateQualityVisibility = () => {
+        if (mp3Toggle.checked) {
+            qualityGroup.classList.add('hidden');
+        } else {
+            // Only try to fetch formats if there's a URL
+            if (urlInput.value.trim().length > 0) {
+                maybeFetchFormats(urlInput, qualityGroup, qualitySelect);
+            }
+        }
+    };
+
+    mp3Toggle.addEventListener('change', updateQualityVisibility);
+    
+    // Set initial state (MP3 checked by default)
+    mp3Toggle.checked = true;
+    updateQualityVisibility();
+
     // Debounced lookup of available qualities as the user types/pastes a URL.
     let formatsDebounce;
     urlInput.addEventListener('input', () => {
-        clearTimeout(formatsDebounce);
-        formatsDebounce = setTimeout(() => {
-            maybeFetchFormats(urlInput, qualityGroup, qualitySelect);
-        }, 700);
+        if (!mp3Toggle.checked) {
+            clearTimeout(formatsDebounce);
+            formatsDebounce = setTimeout(() => {
+                maybeFetchFormats(urlInput, qualityGroup, qualitySelect);
+            }, 700);
+        }
     });
 
     form.addEventListener('submit', async (e) => {
